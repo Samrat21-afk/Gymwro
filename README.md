@@ -61,6 +61,12 @@ The current experience uses placeholder interactions where live sensor integrati
 
 ![Expected Prototype](<Expected%20Prototype.png>)
 
+## Live Preview
+
+The UI is available through GitHub Pages here:
+
+https://samrat21-afk.github.io/Gymwro/
+
 ## How to Run
 
 Since this is a static web prototype, you can open [gym-wro-dashboard.html](gym-wro-dashboard.html) directly in a browser.

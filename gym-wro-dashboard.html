@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gym WRO — Live Set Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="gym-wro-dashboard.css">
+</head>
+<body>
+<div class="app">
+  <div class="console-intro">
+    <div>
+      <div class="eyebrow">Prototype control center</div>
+      <h1>Gym WRO Operator Dashboard</h1>
+      <p>Polished, hardware-ready interface for the wearable workflow with staged interactions while sensor integration is finalized.</p>
+    </div>
+    <div class="intro-pills">
+      <span class="pill">Preview Mode</span>
+      <span class="pill">Responsive</span>
+      <span class="pill">Export Ready</span>
+    </div>
+  </div>
+
+  <div class="telemetry-bar">
+    <div class="brand">
+      <div class="brand-mark" id="brandMark"></div>
+      <div>
+        <div class="brand-name">GYM WRO</div>
+        <div class="brand-sub">Wearable Rep Output — Console</div>
+      </div>
+    </div>
+    <div class="telemetry-status" id="topStatus">NOT CONNECTED</div>
+  </div>
+
+  <div class="steps">
+    <div class="step" data-step="0"><span class="n">01</span>Connect</div>
+    <div class="step" data-step="1"><span class="n">02</span>Calibrate</div>
+    <div class="step" data-step="2"><span class="n">03</span>Live Set</div>
+    <div class="step" data-step="3"><span class="n">04</span>Summary</div>
+  </div>
+
+  <!-- SCREEN 1: CONNECTION -->
+  <div class="panel screen" id="screen-0">
+    <div class="screen-title">Connect the wearable</div>
+    <div class="screen-sub">Bring the ESP32 online. USB serial is the most reliable path for a laptop prototype — pick Demo Mode if the hardware isn't on hand right now.</div>
+
+    <div class="conn-options">
+      <div class="conn-card">
+        <span class="badge ready">Ready</span>
+        <h3>USB Serial</h3>
+        <p>Connect over Web Serial. The board should stream one JSON line per sample at the schema the firmware already emits.</p>
+        <button class="btn btn-primary" id="btnSerial">Connect via USB</button>
+      </div>
+      <div class="conn-card">
+        <span class="badge ready">Ready</span>
+        <h3>Demo Mode</h3>
+        <p>No board yet? Generate a realistic simulated set — same fields, same gauge, same CSV — so the rest of the flow can be tested end to end.</p>
+        <button class="btn" id="btnDemo">Start Demo Set</button>
+      </div>
+      <div class="conn-card">
+        <span class="badge soon">Roadmap</span>
+        <h3>Bluetooth / Wi-Fi</h3>
+        <p>BLE and a local Wi-Fi dashboard are the next input paths once the wired flow is validated. Not wired up in this build.</p>
+        <button class="btn" disabled>Coming soon</button>
+      </div>
+    </div>
+
+    <div class="conn-log" id="connLog">Waiting for a connection…</div>
+  </div>
+
+  <!-- SCREEN 2: CALIBRATION -->
+  <div class="panel screen" id="screen-1" style="display:none;">
+    <div class="screen-title">Set the baseline</div>
+    <div class="screen-sub">Everyone's EMG signal and rep tempo is different. A short baseline lets the gauge and thresholds mean something for this lifter, this exercise, today.</div>
+
+    <div class="cal-row">
+      <div>
+        <label class="small">Exercise</label><br>
+        <select id="exerciseSelect" style="margin-top:6px;">
+          <option>Biceps Curl</option>
+          <option>Squat</option>
+          <option>Bench Press</option>
+          <option>Shoulder Press</option>
+          <option>Lateral Raise</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="btnStartCal">Start Calibration</button>
+    </div>
+
+    <div class="cal-progress" id="calProgress">
+      <div class="cal-dot"></div><div class="cal-dot"></div><div class="cal-dot"></div>
+    </div>
+    <div class="cal-readout" id="calReadout">Press start, then perform 3 easy reps at normal effort.</div>
+
+    <div class="btn-row">
+      <button class="btn" id="btnBack1">Back</button>
+      <button class="btn btn-primary" id="btnToLive" disabled>Begin Set →</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: LIVE SET -->
+  <div class="panel screen" id="screen-2" style="display:none;">
+    <div class="screen-title">Live set — <span id="liveExerciseName">Biceps Curl</span></div>
+    <div class="screen-sub">Rep count, effort, and form quality update in real time from the stream.</div>
+
+    <div class="live-grid">
+      <div class="gauge-wrap">
+        <svg id="gaugeSvg" width="220" height="140" viewBox="0 0 220 140"></svg>
+        <div class="status-pill" id="statusPill">Warming up</div>
+        <div class="metric-cols">
+          <div class="metric"><div class="v" id="mReps">0</div><div class="l">Reps</div></div>
+          <div class="metric"><div class="v" id="mSpeed">0.0s</div><div class="l">Rep Speed</div></div>
+          <div class="metric"><div class="v" id="mRom">0°</div><div class="l">ROM</div></div>
+        </div>
+        <div class="near-failure-banner" id="nearFailureBanner"><span class="pulse-dot"></span> Near-failure detected</div>
+        <div class="btn-row" style="margin-top:10px; width:100%;">
+          <button class="btn btn-danger" id="btnEndSet" style="flex:1;">End Set</button>
+        </div>
+      </div>
+
+      <div class="charts-col">
+        <div class="chart-card">
+          <h4>Muscle activity (EMG)</h4>
+          <canvas id="emgChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h4>Rep speed / motion (IMU)</h4>
+          <canvas id="motionChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h4>Rep quality score</h4>
+          <canvas id="qualityChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: SUMMARY -->
+  <div class="panel screen" id="screen-3" style="display:none;">
+    <div class="screen-title">Set summary</div>
+    <div class="screen-sub">What happened, in plain terms — plus the raw data if you want to dig in later.</div>
+
+    <div class="summary-grid" id="summaryGrid"></div>
+    <div class="summary-note" id="summaryNote"></div>
+
+    <label class="small">Notes</label>
+    <textarea id="notesField" placeholder="Anything worth remembering about this set…"></textarea>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnExportCsv">Export CSV</button>
+      <button class="btn" id="btnNewSet">Start Another Set</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="modal-backdrop" id="placeholderModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-icon">✦</div>
+    <h3 id="modalTitle">Preview action queued</h3>
+    <p id="modalMessage">This interaction is staged for later sensor integration. The flow is ready for the real hardware next.</p>
+    <button class="btn btn-primary" id="modalClose">Continue</button>
+  </div>
+</div>
+
+<script src="gym-wro-dashboard.js"></script>
+</body>
+</html>

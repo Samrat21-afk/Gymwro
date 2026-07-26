@@ -1,27 +1,4 @@
 (function(){
-  const modal = document.getElementById('placeholderModal');
-  const modalMessage = document.getElementById('modalMessage');
-  const modalCloseButton = document.getElementById('modalClose');
-
-  function showPlaceholderNotice(message){
-    modalMessage.textContent = message;
-    modal.hidden = false;
-    modal.style.display = 'flex';
-  }
-
-  function closePlaceholderNotice(){
-    modal.hidden = true;
-    modal.style.display = 'none';
-  }
-
-  modalCloseButton.addEventListener('click', (event)=>{
-    event.stopPropagation();
-    closePlaceholderNotice();
-  });
-  modal.addEventListener('click', (event)=>{
-    if(event.target === modal) closePlaceholderNotice();
-  });
-
   // ---------------- State ----------------
   const state = {
     step: 0,
@@ -34,8 +11,8 @@
     baseline: { emg: 500, rom: 90 },
     live: {
       running: false,
-      samples: [],      // full session log
-      chartWindow: 40,  // points shown on charts
+      samples: [],
+      chartWindow: 40,
       lastRepCount: 0,
       qualityScores: [],
       goodReps: 0,
@@ -49,21 +26,22 @@
   const $ = (id) => document.getElementById(id);
 
   function log(msg){
-    $('connLog').textContent = msg;
+    const el = $('connLog');
+    if (el) el.textContent = msg;
   }
+  
   function setTopStatus(text, mode){
-    $('topStatus').textContent = text;
+    const el = $('topStatus');
+    if (el) el.textContent = text;
     const mark = $('brandMark');
-    mark.className = 'brand-mark' + (mode ? ' ' + mode : '');
+    if (mark) mark.className = 'brand-mark' + (mode ? ' ' + mode : '');
   }
 
-  // ---------------- Step navigation ----------------
+  // ---------------- Step Navigation ----------------
   function goToStep(n){
     state.step = n;
     document.querySelectorAll('.screen').forEach((el,i)=>{
-      const isActive = i === n;
-      el.style.display = isActive ? 'block' : 'none';
-      el.classList.toggle('active', isActive);
+      el.style.display = (i===n) ? 'block' : 'none';
     });
     document.querySelectorAll('.step').forEach((el)=>{
       const idx = parseInt(el.dataset.step,10);
@@ -73,85 +51,94 @@
   }
 
   // ---------------- Screen 1: Connection ----------------
-  $('btnDemo').addEventListener('click', ()=>{
-    state.connMode = 'demo';
-    setTopStatus('DEMO MODE STREAMING', 'demo');
-    log('Demo Mode active — simulated ESP32 stream running at ~20Hz.');
-    showPlaceholderNotice('Demo mode is ready for visual testing. The real sensor path will plug in here later.');
-    goToStep(1);
-  });
-
-  $('btnSerial').addEventListener('click', async ()=>{
-    if(!('serial' in navigator)){
-      log('Web Serial isn\'t available in this browser. Try Chrome/Edge on desktop, or use Demo Mode.');
-      showPlaceholderNotice('Your browser does not expose Web Serial right now, so the UI falls back to a polished preview experience.');
-      return;
-    }
-    try{
-      const port = await navigator.serial.requestPort();
-      await port.open({ baudRate: 115200 });
-      state.serialPort = port;
-      state.connMode = 'serial';
-      setTopStatus('USB CONNECTED', 'live');
-      log('Serial port connected at 115200 baud. Waiting for JSON stream…');
-      showPlaceholderNotice('USB connection is staged for the real board. The interface is already prepared for the incoming stream.');
+  const btnDemo = $('btnDemo');
+  if (btnDemo) {
+    btnDemo.addEventListener('click', ()=>{
+      state.connMode = 'demo';
+      setTopStatus('DEMO MODE STREAMING', 'demo');
+      log('Demo Mode active — simulated ESP32 stream running at ~20Hz.');
       goToStep(1);
-    }catch(err){
-      log('Connection cancelled or failed: ' + err.message);
-    }
-  });
+    });
+  }
+
+  const btnSerial = $('btnSerial');
+  if (btnSerial) {
+    btnSerial.addEventListener('click', async ()=>{
+      if(!('serial' in navigator)){
+        log('Web Serial isn\'t available in this browser. Try Chrome/Edge on desktop, or use Demo Mode.');
+        return;
+      }
+      try{
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        state.serialPort = port;
+        state.connMode = 'serial';
+        setTopStatus('USB CONNECTED', 'live');
+        log('Serial port connected at 115200 baud. Waiting for JSON stream…');
+        goToStep(1);
+      }catch(err){
+        log('Connection cancelled or failed: ' + err.message);
+      }
+    });
+  }
 
   // ---------------- Screen 2: Calibration ----------------
-  $('exerciseSelect').addEventListener('change', (e)=>{ state.exercise = e.target.value; });
+  const exerciseSelect = $('exerciseSelect');
+  if (exerciseSelect) {
+    exerciseSelect.addEventListener('change', (e)=>{ state.exercise = e.target.value; });
+  }
 
-  $('btnStartCal').addEventListener('click', ()=>{
-    state.calibrating = true;
-    state.calRepsSeen = 0;
-    $('calReadout').innerHTML = 'Recording baseline… perform <b>3</b> easy reps now.';
-    document.querySelectorAll('.cal-dot').forEach(d=>d.classList.remove('filled'));
-    showPlaceholderNotice('Calibration is currently simulated so the workflow feels complete before live sensor data arrives.');
-    runCalibrationSim();
-  });
+  const btnStartCal = $('btnStartCal');
+  if (btnStartCal) {
+    btnStartCal.addEventListener('click', ()=>{
+      state.calibrating = true;
+      state.calRepsSeen = 0;
+      $('calReadout').innerHTML = 'Recording baseline… perform <b>3</b> easy reps now.';
+      document.querySelectorAll('.cal-dot').forEach(d=>d.classList.remove('filled'));
+      runCalibrationSim();
+    });
+  }
 
   function runCalibrationSim(){
-    // Simulated baseline capture (works identically whether serial or demo,
-    // since real calibration would read live samples the same way).
     let count = 0;
     const dots = document.querySelectorAll('.cal-dot');
     const iv = setInterval(()=>{
       count++;
       dots[count-1] && dots[count-1].classList.add('filled');
       state.calRepsSeen = count;
-      $('calReadout').innerHTML = `Rep ${count} of 3 captured — baseline EMG ~<b>${(480+Math.random()*60|0)}</b>, ROM ~<b>${(85+Math.random()*10|0)}°</b>`;
+      $('calReadout').innerHTML = `Rep ${count} of 3 captured — baseline EMG ~<b>${(480+Math.random()*60|0)} µV</b>, ROM ~<b>${(85+Math.random()*10|0)}°</b>`;
       if(count>=3){
         clearInterval(iv);
         state.baseline.emg = 480+Math.random()*60|0;
         state.baseline.rom = 85+Math.random()*10|0;
-        $('calReadout').innerHTML = `Baseline set — EMG <b>${state.baseline.emg}</b>, ROM <b>${state.baseline.rom}°</b>. Ready to begin the set.`;
+        $('calReadout').innerHTML = `Baseline set — EMG <b>${state.baseline.emg} µV</b>, ROM <b>${state.baseline.rom}°</b>. Ready to begin the set.`;
         $('btnToLive').disabled = false;
       }
     }, 700);
   }
 
-  $('btnBack1').addEventListener('click', ()=> goToStep(0));
-  $('btnToLive').addEventListener('click', ()=>{
-    $('liveExerciseName').textContent = state.exercise;
-    showPlaceholderNotice('The live set view is now ready for the first real sample feed.');
-    goToStep(2);
-    startLiveSet();
-  });
+  const btnBack1 = $('btnBack1');
+  if (btnBack1) btnBack1.addEventListener('click', ()=> goToStep(0));
 
-  // ---------------- Gauge (signature element) ----------------
-  function drawGauge(pct, colorStops){
-    // pct: 0..1 effort level. Draws a segmented arc gauge, green->yellow->orange->red.
+  const btnToLive = $('btnToLive');
+  if (btnToLive) {
+    btnToLive.addEventListener('click', ()=>{
+      $('liveExerciseName').textContent = state.exercise;
+      goToStep(2);
+      startLiveSet();
+    });
+  }
+
+  // ---------------- Gauge ----------------
+  function drawGauge(pct){
     const svg = $('gaugeSvg');
+    if (!svg) return;
     const cx=110, cy=120, r=95;
-    const segColors = ['#4ade80','#fbbf24','#fb923c','#f4515f'];
+    const segColors = ['#16a34a','#d97706','#ea580c','#dc2626'];
     let paths = '';
     const segCount = segColors.length;
-    const gap = 0.035; // radians gap between segments
-    const startAngle = Math.PI; // 180deg
-    const endAngle = 0;
+    const gap = 0.035;
+    const startAngle = Math.PI;
     const totalSpan = Math.PI;
     for(let i=0;i<segCount;i++){
       const segStart = startAngle - (totalSpan/segCount)*i;
@@ -159,40 +146,41 @@
       const active = pct >= (i/segCount);
       const x1 = cx + r*Math.cos(segStart), y1 = cy - r*Math.sin(segStart);
       const x2 = cx + r*Math.cos(segEnd), y2 = cy - r*Math.sin(segEnd);
-      paths += `<path d="M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}" stroke="${active?segColors[i]:'#2b323c'}" stroke-width="14" fill="none" stroke-linecap="round" opacity="${active?1:0.5}"/>`;
+      paths += `<path d="M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}" stroke="${active?segColors[i]:'#e2dad0'}" stroke-width="14" fill="none" stroke-linecap="round" opacity="${active?1:0.5}"/>`;
     }
-    // needle
     const needleAngle = startAngle - totalSpan*pct;
     const nx = cx + (r-20)*Math.cos(needleAngle), ny = cy - (r-20)*Math.sin(needleAngle);
-    const needle = `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#eceef0" stroke-width="3" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="5" fill="#eceef0"/>`;
+    const needle = `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#2c2825" stroke-width="3.5" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="5.5" fill="#2c2825"/>`;
     svg.innerHTML = paths + needle;
   }
   drawGauge(0);
 
   // ---------------- Charts ----------------
-  Chart.defaults.color = '#8b94a0';
+  Chart.defaults.color = '#6b635b';
   Chart.defaults.font.family = "'JetBrains Mono', monospace";
   Chart.defaults.font.size = 10;
 
   function makeLineChart(ctx, color){
+    if (!ctx) return null;
     return new Chart(ctx, {
       type:'line',
-      data:{ labels:[], datasets:[{ data:[], borderColor:color, backgroundColor:color+'22', tension:0.35, pointRadius:0, borderWidth:2, fill:true }]},
+      data:{ labels:[], datasets:[{ data:[], borderColor:color, backgroundColor:color+'18', tension:0.35, pointRadius:0, borderWidth:2, fill:true }]},
       options:{
         animation:false, responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:false} },
         scales:{
           x:{ display:false },
-          y:{ grid:{ color:'#2b323c' }, ticks:{ maxTicksLimit:4 } }
+          y:{ grid:{ color:'#e2dad0' }, ticks:{ maxTicksLimit:4 } }
         }
       }
     });
   }
-  const emgChart = makeLineChart($('emgChart'), '#35c8e8');
-  const motionChart = makeLineChart($('motionChart'), '#fbbf24');
-  const qualityChart = makeLineChart($('qualityChart'), '#4ade80');
+  const emgChart = makeLineChart($('emgChart'), '#0284c7');
+  const motionChart = makeLineChart($('motionChart'), '#d97706');
+  const qualityChart = makeLineChart($('qualityChart'), '#16a34a');
 
   function pushChart(chart, val, windowSize){
+    if (!chart) return;
     chart.data.labels.push('');
     chart.data.datasets[0].data.push(val);
     if(chart.data.labels.length > windowSize){
@@ -202,27 +190,33 @@
     chart.update('none');
   }
 
-  // ---------------- Live set logic ----------------
+  // ---------------- Live Set Logic ----------------
   function statusForFatigue(score){
-    if(score < 35) return { text:'Good reps', pct: score/100, level:'good' };
-    if(score < 60) return { text:'Fatigue building', pct: score/100, level:'warn' };
-    if(score < 80) return { text:'Near failure', pct: score/100, level:'mid' };
-    return { text:'Rep quality breaking down', pct: score/100, level:'danger' };
+    if(score < 35) return { text:'Good reps', pct: score/100, cls:'good' };
+    if(score < 60) return { text:'Fatigue building', pct: score/100, cls:'warn' };
+    if(score < 80) return { text:'Near failure', pct: score/100, cls:'mid' };
+    return { text:'Rep quality breaking down', pct: score/100, cls:'danger' };
   }
 
   function handleSample(sample){
     state.live.samples.push(sample);
 
-    $('mReps').textContent = sample.repCount;
-    $('mSpeed').textContent = sample.repSpeed.toFixed(1)+'s';
-    $('mRom').textContent = Math.round(sample.rom)+'°';
+    if ($('mReps')) $('mReps').textContent = sample.repCount;
+    if ($('mSpeed')) $('mSpeed').textContent = sample.repSpeed.toFixed(1)+'s';
+    if ($('mRom')) $('mRom').textContent = Math.round(sample.rom)+'°';
+    if ($('mEmg')) $('mEmg').textContent = sample.emg;
 
     const st = statusForFatigue(sample.fatigueScore);
-    $('statusPill').textContent = sample.status || st.text;
+    const statusPill = $('statusPill');
+    if (statusPill) {
+      statusPill.textContent = sample.status || st.text;
+      statusPill.className = 'status-pill ' + st.cls;
+    }
+    
     drawGauge(Math.min(1, sample.fatigueScore/100));
 
     const banner = $('nearFailureBanner');
-    banner.classList.toggle('show', sample.fatigueScore >= 65);
+    if (banner) banner.classList.toggle('show', sample.fatigueScore >= 65);
 
     pushChart(emgChart, sample.emg, state.live.chartWindow);
     pushChart(motionChart, sample.repSpeed, state.live.chartWindow);
@@ -244,7 +238,7 @@
     state.live.goodReps = 0;
     state.live.droppingReps = 0;
     state.live.lastRepCount = 0;
-    [emgChart, motionChart, qualityChart].forEach(c=>{ c.data.labels=[]; c.data.datasets[0].data=[]; c.update('none'); });
+    [emgChart, motionChart, qualityChart].forEach(c=>{ if (c) { c.data.labels=[]; c.data.datasets[0].data=[]; c.update('none'); } });
 
     if(state.connMode === 'demo'){
       startDemoStream();
@@ -259,7 +253,7 @@
     if(state.reader){ try{ state.reader.cancel(); }catch(e){} }
   }
 
-  // ---- Demo simulation stream (matches the ESP32 JSON schema) ----
+  // ---- Demo simulation stream ----
   function startDemoStream(){
     const d = state.live.demoState;
     d.t = 0; d.rep = 0; d.phase = 0;
@@ -267,7 +261,7 @@
       d.t += 0.15;
       d.phase += 0.35;
       const repProgress = (Math.sin(d.phase)+1)/2;
-      if(repProgress > 0.97 && !d._peaked){ d._peaked = true; d.rep += (Math.random()>0.5?0:0); }
+      if(repProgress > 0.97 && !d._peaked){ d._peaked = true; }
       if(repProgress < 0.03 && d._peaked){ d._peaked=false; d.rep += 1; }
 
       const fatigueRamp = Math.min(95, d.rep * 6.5 + Math.random()*4);
@@ -302,7 +296,7 @@
   async function startSerialStream(){
     if(!state.serialPort) return;
     const decoder = new TextDecoderStream();
-    const inputDone = state.serialPort.readable.pipeTo(decoder.writable);
+    state.serialPort.readable.pipeTo(decoder.writable);
     const inputStream = decoder.readable;
     state.reader = inputStream.getReader();
     let buffer = '';
@@ -319,7 +313,7 @@
           try{
             const sample = JSON.parse(trimmed);
             handleSample(sample);
-          }catch(e){ /* ignore malformed line */ }
+          }catch(e){ }
         }
       }
     }catch(err){
@@ -327,10 +321,8 @@
     }
   }
 
-  $('btnEndSet').addEventListener('click', ()=>{
-    showPlaceholderNotice('The session summary is being prepared as a polished placeholder for later real-world data.');
-    finishSet();
-  });
+  const btnEndSet = $('btnEndSet');
+  if (btnEndSet) btnEndSet.addEventListener('click', ()=>{ finishSet(); });
 
   function finishSet(){
     stopLiveSet();
@@ -361,51 +353,59 @@
       { v: s.goodReps, l: 'Good reps' },
       { v: s.droppingReps, l: 'Quality-drop reps' },
     ];
-    $('summaryGrid').innerHTML = cards.map(c=>`<div class="summary-card"><div class="v">${c.v}</div><div class="l">${c.l}</div></div>`).join('');
+    if ($('summaryGrid')) {
+      $('summaryGrid').innerHTML = cards.map(c=>`<div class="summary-card"><div class="v">${c.v}</div><div class="l">${c.l}</div></div>`).join('');
+    }
 
-    // find where fatigue crossed 60 for narrative
     let fatigueRepMark = null;
     for(const sm of s.samples){ if(sm.fatigueScore>=60 && fatigueRepMark===null){ fatigueRepMark = sm.repCount; } }
     const speedDropRange = totalReps>=3 ? `${Math.max(1,totalReps-2)}–${totalReps}` : '—';
 
-    $('summaryNote').innerHTML =
-      `${totalReps} reps completed<br>` +
-      (fatigueRepMark ? `Fatigue increased after rep ${fatigueRepMark}<br>` : 'Fatigue stayed low throughout<br>') +
-      `Rep speed drifted upward on reps ${speedDropRange}<br>` +
-      `Range of motion ${romDrop>3?'decreased near the end':'stayed consistent'}<br>` +
-      `Final status: <span class="final">${finalStatus}</span>`;
+    if ($('summaryNote')) {
+      $('summaryNote').innerHTML =
+        `${totalReps} reps completed for <b>${state.exercise}</b><br>` +
+        (fatigueRepMark ? `Fatigue increased after rep ${fatigueRepMark}<br>` : 'Fatigue stayed low throughout<br>') +
+        `Rep speed drifted upward on reps ${speedDropRange}<br>` +
+        `Range of motion ${romDrop>3?'decreased near the end':'stayed consistent'}<br>` +
+        `Final status: <span class="final">${finalStatus}</span>`;
+    }
   }
 
-  $('btnExportCsv').addEventListener('click', ()=>{
-    showPlaceholderNotice('CSV export is ready for the future dataset, with the current mock session formatted for later review.');
-    const s = state.live;
-    const rows = [['time','exercise','repCount','emg','accelX','accelY','gyroZ','rom','repSpeed','fatigueScore','status']];
-    s.samples.forEach(sm=>{
-      rows.push([sm.time, state.exercise, sm.repCount, sm.emg, sm.accelX, sm.accelY, sm.gyroZ, sm.rom, sm.repSpeed, sm.fatigueScore, sm.status]);
+  const btnExportCsv = $('btnExportCsv');
+  if (btnExportCsv) {
+    btnExportCsv.addEventListener('click', ()=>{
+      const s = state.live;
+      const rows = [['time','exercise','repCount','emg','accelX','accelY','gyroZ','rom','repSpeed','fatigueScore','status']];
+      s.samples.forEach(sm=>{
+        rows.push([sm.time, state.exercise, sm.repCount, sm.emg, sm.accelX, sm.accelY, sm.gyroZ, sm.rom, sm.repSpeed, sm.fatigueScore, sm.status]);
+      });
+      const notesVal = $('notesField') ? $('notesField').value : '';
+      const notes = notesVal.replace(/"/g,'""');
+      rows.push([]);
+      rows.push(['notes', `"${notes}"`]);
+      const csv = rows.map(r=>r.join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+      a.href = url;
+      a.download = `gym-wro_${state.exercise.replace(/\s+/g,'-').toLowerCase()}_${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     });
-    const notes = $('notesField').value.replace(/"/g,'""');
-    rows.push([]);
-    rows.push(['notes', `"${notes}"`]);
-    const csv = rows.map(r=>r.join(',')).join('\n');
-    const blob = new Blob([csv], {type:'text/csv'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const stamp = new Date().toISOString().replace(/[:.]/g,'-');
-    a.href = url;
-    a.download = `gym-wro_${state.exercise.replace(/\s+/g,'-').toLowerCase()}_${stamp}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  });
+  }
 
-  $('btnNewSet').addEventListener('click', ()=>{
-    showPlaceholderNotice('A fresh set can be started at any time. The next pass will use the actual live stream once it is connected.');
-    $('btnToLive').disabled = true;
-    $('calReadout').textContent = 'Press start, then perform 3 easy reps at normal effort.';
-    document.querySelectorAll('.cal-dot').forEach(d=>d.classList.remove('filled'));
-    goToStep(1);
-  });
+  const btnNewSet = $('btnNewSet');
+  if (btnNewSet) {
+    btnNewSet.addEventListener('click', ()=>{
+      if ($('btnToLive')) $('btnToLive').disabled = true;
+      if ($('calReadout')) $('calReadout').textContent = 'Press start, then perform 3 easy reps at normal effort.';
+      document.querySelectorAll('.cal-dot').forEach(d=>d.classList.remove('filled'));
+      goToStep(1);
+    });
+  }
 
   goToStep(0);
 })();

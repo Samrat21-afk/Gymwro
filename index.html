@@ -3,38 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gym WRO — Live Set Console</title>
+<title>Gym WRO — Wearable Rep Output Dashboard</title>
+<!-- Google Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Chart.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="stylesheet" href="gym-wro-dashboard.css">
 </head>
 <body>
-<div class="app">
-  <div class="console-intro">
-    <div>
-      <div class="eyebrow">Prototype control center</div>
-      <h1>Gym WRO Operator Dashboard</h1>
-      <p>Polished, hardware-ready interface for the wearable workflow with staged interactions while sensor integration is finalized.</p>
-    </div>
-    <div class="intro-pills">
-      <span class="pill">Preview Mode</span>
-      <span class="pill">Responsive</span>
-      <span class="pill">Export Ready</span>
-    </div>
-  </div>
 
+<div class="app">
+
+  <!-- Header -->
   <div class="telemetry-bar">
     <div class="brand">
       <div class="brand-mark" id="brandMark"></div>
       <div>
         <div class="brand-name">GYM WRO</div>
-        <div class="brand-sub">Wearable Rep Output — Console</div>
+        <div class="brand-sub">Wearable Rep Output & Near-Failure Dashboard</div>
       </div>
     </div>
-    <div class="telemetry-status" id="topStatus">NOT CONNECTED</div>
+    <div class="top-status" id="topStatus">NOT CONNECTED</div>
   </div>
 
+  <!-- User Workflow Steps Rail -->
   <div class="steps">
     <div class="step" data-step="0"><span class="n">01</span>Connect</div>
     <div class="step" data-step="1"><span class="n">02</span>Calibrate</div>
@@ -45,40 +39,40 @@
   <!-- SCREEN 1: CONNECTION -->
   <div class="panel screen" id="screen-0">
     <div class="screen-title">Connect the wearable</div>
-    <div class="screen-sub">Bring the ESP32 online. USB serial is the most reliable path for a laptop prototype — pick Demo Mode if the hardware isn't on hand right now.</div>
+    <div class="screen-sub">Bring the ESP32 online via USB serial, or start a realistic simulated demo set.</div>
 
     <div class="conn-options">
       <div class="conn-card">
         <span class="badge ready">Ready</span>
         <h3>USB Serial</h3>
-        <p>Connect over Web Serial. The board should stream one JSON line per sample at the schema the firmware already emits.</p>
+        <p>Connect over Web Serial. Streaming 115200 baud JSON data directly from the wearable hardware.</p>
         <button class="btn btn-primary" id="btnSerial">Connect via USB</button>
       </div>
       <div class="conn-card">
         <span class="badge ready">Ready</span>
         <h3>Demo Mode</h3>
-        <p>No board yet? Generate a realistic simulated set — same fields, same gauge, same CSV — so the rest of the flow can be tested end to end.</p>
+        <p>No board connected? Simulate a realistic lifting set with sEMG & IMU fatigue trends.</p>
         <button class="btn" id="btnDemo">Start Demo Set</button>
       </div>
       <div class="conn-card">
         <span class="badge soon">Roadmap</span>
         <h3>Bluetooth / Wi-Fi</h3>
-        <p>BLE and a local Wi-Fi dashboard are the next input paths once the wired flow is validated. Not wired up in this build.</p>
+        <p>Wireless BLE and local Wi-Fi transmission planned for future hardware builds.</p>
         <button class="btn" disabled>Coming soon</button>
       </div>
     </div>
 
-    <div class="conn-log" id="connLog">Waiting for a connection…</div>
+    <div class="conn-log" id="connLog">Waiting for connection stream…</div>
   </div>
 
   <!-- SCREEN 2: CALIBRATION -->
   <div class="panel screen" id="screen-1" style="display:none;">
-    <div class="screen-title">Set the baseline</div>
-    <div class="screen-sub">Everyone's EMG signal and rep tempo is different. A short baseline lets the gauge and thresholds mean something for this lifter, this exercise, today.</div>
+    <div class="screen-title">Set baseline thresholds</div>
+    <div class="screen-sub">EMG signal and movement velocity vary per lifter. Perform 3 warm-up reps to calibrate baseline values.</div>
 
     <div class="cal-row">
       <div>
-        <label class="small">Exercise</label><br>
+        <label class="small">Target Exercise</label><br>
         <select id="exerciseSelect" style="margin-top:6px;">
           <option>Biceps Curl</option>
           <option>Squat</option>
@@ -103,8 +97,8 @@
 
   <!-- SCREEN 3: LIVE SET -->
   <div class="panel screen" id="screen-2" style="display:none;">
-    <div class="screen-title">Live set — <span id="liveExerciseName">Biceps Curl</span></div>
-    <div class="screen-sub">Rep count, effort, and form quality update in real time from the stream.</div>
+    <div class="screen-title">Live set — <span id="liveExerciseName" style="color:var(--cyan);">Biceps Curl</span></div>
+    <div class="screen-sub">Real-time muscle activation (sEMG) & kinematics (IMU) telemetry stream.</div>
 
     <div class="live-grid">
       <div class="gauge-wrap">
@@ -114,8 +108,9 @@
           <div class="metric"><div class="v" id="mReps">0</div><div class="l">Reps</div></div>
           <div class="metric"><div class="v" id="mSpeed">0.0s</div><div class="l">Rep Speed</div></div>
           <div class="metric"><div class="v" id="mRom">0°</div><div class="l">ROM</div></div>
+          <div class="metric"><div class="v" id="mEmg">0</div><div class="l">EMG (µV)</div></div>
         </div>
-        <div class="near-failure-banner" id="nearFailureBanner"><span class="pulse-dot"></span> Near-failure detected</div>
+        <div class="near-failure-banner" id="nearFailureBanner"><span class="static-dot"></span> Near-failure detected</div>
         <div class="btn-row" style="margin-top:10px; width:100%;">
           <button class="btn btn-danger" id="btnEndSet" style="flex:1;">End Set</button>
         </div>
@@ -123,7 +118,7 @@
 
       <div class="charts-col">
         <div class="chart-card">
-          <h4>Muscle activity (EMG)</h4>
+          <h4>Muscle activity (sEMG RMS)</h4>
           <canvas id="emgChart"></canvas>
         </div>
         <div class="chart-card">
@@ -141,13 +136,13 @@
   <!-- SCREEN 4: SUMMARY -->
   <div class="panel screen" id="screen-3" style="display:none;">
     <div class="screen-title">Set summary</div>
-    <div class="screen-sub">What happened, in plain terms — plus the raw data if you want to dig in later.</div>
+    <div class="screen-sub">Post-set analysis of muscular fatigue, velocity drop, and form quality breakdown.</div>
 
     <div class="summary-grid" id="summaryGrid"></div>
     <div class="summary-note" id="summaryNote"></div>
 
-    <label class="small">Notes</label>
-    <textarea id="notesField" placeholder="Anything worth remembering about this set…"></textarea>
+    <label class="small">Athlete Notes</label>
+    <textarea id="notesField" placeholder="Record load, RPE, or form observations…"></textarea>
 
     <div class="btn-row">
       <button class="btn btn-primary" id="btnExportCsv">Export CSV</button>
@@ -155,15 +150,6 @@
     </div>
   </div>
 
-</div>
-
-<div class="modal-backdrop" id="placeholderModal" hidden>
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-icon">✦</div>
-    <h3 id="modalTitle">Preview action queued</h3>
-    <p id="modalMessage">This interaction is staged for later sensor integration. The flow is ready for the real hardware next.</p>
-    <button class="btn btn-primary" id="modalClose">Continue</button>
-  </div>
 </div>
 
 <script src="gym-wro-dashboard.js"></script>

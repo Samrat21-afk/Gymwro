@@ -13,9 +13,7 @@
 <link rel="stylesheet" href="gym-wro-dashboard.css">
 </head>
 <body>
-
 <div class="app">
-
   <!-- Header -->
   <div class="telemetry-bar">
     <div class="brand">
@@ -27,7 +25,6 @@
     </div>
     <div class="top-status" id="topStatus">NOT CONNECTED</div>
   </div>
-
   <!-- User Workflow Steps Rail -->
   <div class="steps">
     <div class="step" data-step="0"><span class="n">01</span>Connect</div>
@@ -35,12 +32,10 @@
     <div class="step" data-step="2"><span class="n">03</span>Live Set</div>
     <div class="step" data-step="3"><span class="n">04</span>Summary</div>
   </div>
-
   <!-- SCREEN 1: CONNECTION -->
   <div class="panel screen" id="screen-0">
     <div class="screen-title">Connect the wearable</div>
     <div class="screen-sub">Bring the ESP32 online via USB serial, or start a realistic simulated demo set.</div>
-
     <div class="conn-options">
       <div class="conn-card">
         <span class="badge ready">Ready</span>
@@ -61,15 +56,12 @@
         <button class="btn" disabled>Coming soon</button>
       </div>
     </div>
-
     <div class="conn-log" id="connLog">Waiting for connection stream…</div>
   </div>
-
   <!-- SCREEN 2: CALIBRATION -->
   <div class="panel screen" id="screen-1" style="display:none;">
     <div class="screen-title">Set baseline thresholds</div>
     <div class="screen-sub">EMG signal and movement velocity vary per lifter. Perform 3 warm-up reps to calibrate baseline values.</div>
-
     <div class="cal-row">
       <div>
         <label class="small">Target Exercise</label><br>
@@ -83,23 +75,19 @@
       </div>
       <button class="btn btn-primary" id="btnStartCal">Start Calibration</button>
     </div>
-
     <div class="cal-progress" id="calProgress">
       <div class="cal-dot"></div><div class="cal-dot"></div><div class="cal-dot"></div>
     </div>
     <div class="cal-readout" id="calReadout">Press start, then perform 3 easy reps at normal effort.</div>
-
     <div class="btn-row">
       <button class="btn" id="btnBack1">Back</button>
       <button class="btn btn-primary" id="btnToLive" disabled>Begin Set →</button>
     </div>
   </div>
-
   <!-- SCREEN 3: LIVE SET -->
   <div class="panel screen" id="screen-2" style="display:none;">
     <div class="screen-title">Live set — <span id="liveExerciseName" style="color:var(--cyan);">Biceps Curl</span></div>
     <div class="screen-sub">Real-time muscle activation (sEMG) & kinematics (IMU) telemetry stream.</div>
-
     <div class="live-grid">
       <div class="gauge-wrap">
         <svg id="gaugeSvg" width="220" height="140" viewBox="0 0 220 140"></svg>
@@ -115,7 +103,6 @@
           <button class="btn btn-danger" id="btnEndSet" style="flex:1;">End Set</button>
         </div>
       </div>
-
       <div class="charts-col">
         <div class="chart-card">
           <h4>Muscle activity (sEMG RMS)</h4>
@@ -132,26 +119,20 @@
       </div>
     </div>
   </div>
-
   <!-- SCREEN 4: SUMMARY -->
   <div class="panel screen" id="screen-3" style="display:none;">
     <div class="screen-title">Set summary</div>
     <div class="screen-sub">Post-set analysis of muscular fatigue, velocity drop, and form quality breakdown.</div>
-
     <div class="summary-grid" id="summaryGrid"></div>
     <div class="summary-note" id="summaryNote"></div>
-
     <label class="small">Athlete Notes</label>
     <textarea id="notesField" placeholder="Record load, RPE, or form observations…"></textarea>
-
     <div class="btn-row">
       <button class="btn btn-primary" id="btnExportCsv">Export CSV</button>
       <button class="btn" id="btnNewSet">Start Another Set</button>
     </div>
   </div>
-
 </div>
-
 <script src="gym-wro-dashboard.js"></script>
 </body>
 </html>

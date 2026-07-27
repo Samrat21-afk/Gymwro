@@ -1,4 +1,5 @@
 # Gym WRO — Wearable Rep Output & Near-Failure System
+[Link to the project](https://samrat21-afk.github.io/Gymwro/)
 
 > **Wearable Muscle Fatigue & Rep-Quality Sensor System for Resistance Training**
 > *Innovation Challenge Project*

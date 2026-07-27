@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Gym WRO — Wearable Rep Output Dashboard</title>
 <!-- Google Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,24 +14,40 @@
 </head>
 <body>
 <div class="app">
+
+  <!-- Toast stack for milestone / badge notifications -->
+  <div class="toast-stack" id="toastStack"></div>
   <!-- Header -->
   <div class="telemetry-bar">
     <div class="brand">
-      <div class="brand-mark" id="brandMark"></div>
-      <div>
+      <svg class="brand-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M50 8a42 42 0 1 0 29.7 71.7" stroke="#21262c" stroke-width="10" stroke-linecap="round"/>
+        <path d="M22 46l10 24 12-16 12 16 16-40" stroke="#0bb494" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path d="M56 70l16-40" stroke="#ec3d3f" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+      <div class="brand-text">
         <div class="brand-name">GYM WRO</div>
-        <div class="brand-sub">Wearable Rep Output & Near-Failure Dashboard</div>
+        <div class="brand-sub">Rep Output & Near-Failure Dashboard</div>
       </div>
+      <div class="brand-mark" id="brandMark"></div>
     </div>
-    <div class="top-status" id="topStatus">NOT CONNECTED</div>
+    <div class="header-right">
+      <div class="top-status" id="topStatus">NOT CONNECTED</div>
+      <button class="icon-toggle" id="btnSound" title="Toggle rep sound" aria-label="Toggle rep sound">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path id="soundWaves" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+      </button>
+    </div>
   </div>
+
   <!-- User Workflow Steps Rail -->
   <div class="steps">
-    <div class="step" data-step="0"><span class="n">01</span>Connect</div>
-    <div class="step" data-step="1"><span class="n">02</span>Calibrate</div>
-    <div class="step" data-step="2"><span class="n">03</span>Live Set</div>
-    <div class="step" data-step="3"><span class="n">04</span>Summary</div>
+    <div class="step" data-step="0"><span class="n">01</span><span class="label">Connect</span></div>
+    <div class="step" data-step="1"><span class="n">02</span><span class="label">Calibrate</span></div>
+    <div class="step" data-step="2"><span class="n">03</span><span class="label">Live Set</span></div>
+    <div class="step" data-step="3"><span class="n">04</span><span class="label">Summary</span></div>
   </div>
+  <div class="step-caption" id="stepCaption">Connect</div>
+
   <!-- SCREEN 1: CONNECTION -->
   <div class="panel screen" id="screen-0">
     <div class="screen-title">Connect the wearable</div>
@@ -58,6 +74,7 @@
     </div>
     <div class="conn-log" id="connLog">Waiting for connection stream…</div>
   </div>
+
   <!-- SCREEN 2: CALIBRATION -->
   <div class="panel screen" id="screen-1" style="display:none;">
     <div class="screen-title">Set baseline thresholds</div>
@@ -84,14 +101,18 @@
       <button class="btn btn-primary" id="btnToLive" disabled>Begin Set →</button>
     </div>
   </div>
+
   <!-- SCREEN 3: LIVE SET -->
   <div class="panel screen" id="screen-2" style="display:none;">
-    <div class="screen-title">Live set — <span id="liveExerciseName" style="color:var(--cyan);">Biceps Curl</span></div>
+    <div class="screen-title">Live set — <span id="liveExerciseName" style="color:var(--teal);">Biceps Curl</span></div>
     <div class="screen-sub">Real-time muscle activation (sEMG) & kinematics (IMU) telemetry stream.</div>
     <div class="live-grid">
       <div class="gauge-wrap">
         <svg id="gaugeSvg" width="220" height="140" viewBox="0 0 220 140"></svg>
-        <div class="status-pill" id="statusPill">Warming up</div>
+        <div class="status-row">
+          <div class="status-pill" id="statusPill">Warming up</div>
+          <div class="streak-chip" id="streakChip"><span id="streakVal">0</span><span class="streak-label">streak</span></div>
+        </div>
         <div class="metric-cols">
           <div class="metric"><div class="v" id="mReps">0</div><div class="l">Reps</div></div>
           <div class="metric"><div class="v" id="mSpeed">0.0s</div><div class="l">Rep Speed</div></div>
@@ -119,10 +140,19 @@
       </div>
     </div>
   </div>
+
   <!-- SCREEN 4: SUMMARY -->
   <div class="panel screen" id="screen-3" style="display:none;">
     <div class="screen-title">Set summary</div>
     <div class="screen-sub">Post-set analysis of muscular fatigue, velocity drop, and form quality breakdown.</div>
+
+    <div class="pr-banner" id="prBanner">
+      <div class="pr-title">New personal best</div>
+      <div class="pr-sub" id="prSubtext"></div>
+    </div>
+
+    <div class="badge-strip" id="badgeStrip"></div>
+
     <div class="summary-grid" id="summaryGrid"></div>
     <div class="summary-note" id="summaryNote"></div>
     <label class="small">Athlete Notes</label>

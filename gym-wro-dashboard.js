@@ -1,5 +1,9 @@
 (function(){
   // ---------------- State ----------------
+  const STEP_NAMES = ['Connect', 'Calibrate', 'Live Set', 'Summary'];
+  const HISTORY_KEY = 'gymwro_history_v1';
+  const SOUND_KEY = 'gymwro_sound_on';
+
   const state = {
     step: 0,
     connMode: null, // 'serial' | 'demo'
@@ -8,6 +12,7 @@
     exercise: 'Biceps Curl',
     calibrating: false,
     calRepsSeen: 0,
+    soundOn: readSoundPref(),
     baseline: { emg: 500, rom: 90 },
     live: {
       running: false,
@@ -17,6 +22,10 @@
       qualityScores: [],
       goodReps: 0,
       droppingReps: 0,
+      streak: 0,
+      bestStreak: 0,
+      streakBadgesHit: new Set(),
+      nearFailureAlerted: false,
       startTime: null,
       demoTimer: null,
       demoState: { t: 0, rep: 0, phase: 0 }
@@ -29,12 +38,76 @@
     const el = $('connLog');
     if (el) el.textContent = msg;
   }
-  
+
   function setTopStatus(text, mode){
     const el = $('topStatus');
     if (el) el.textContent = text;
     const mark = $('brandMark');
     if (mark) mark.className = 'brand-mark' + (mode ? ' ' + mode : '');
+  }
+
+  // ---------------- Local history / personal records ----------------
+  function loadHistory(){
+    try{
+      return JSON.parse(localStorage.getItem(HISTORY_KEY)) || {};
+    }catch(e){ return {}; }
+  }
+  function saveHistory(h){
+    try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }catch(e){}
+  }
+  function readSoundPref(){
+    try{ return localStorage.getItem(SOUND_KEY) !== 'off'; }catch(e){ return true; }
+  }
+
+  // ---------------- Haptics & sound ----------------
+  function vibrate(pattern){
+    try{ if (navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+  }
+
+  let audioCtx = null;
+  function beep(freq, duration, gain){
+    if (!state.soundOn) return;
+    try{
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      g.gain.value = gain || 0.05;
+      osc.connect(g); g.connect(audioCtx.destination);
+      osc.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+      osc.stop(audioCtx.currentTime + duration);
+    }catch(e){}
+  }
+
+  function updateSoundIcon(){
+    const btn = $('btnSound');
+    if (!btn) return;
+    btn.classList.toggle('on', state.soundOn);
+    const waves = $('soundWaves');
+    if (waves) waves.style.display = state.soundOn ? 'block' : 'none';
+  }
+  const btnSound = $('btnSound');
+  if (btnSound){
+    btnSound.addEventListener('click', ()=>{
+      state.soundOn = !state.soundOn;
+      try{ localStorage.setItem(SOUND_KEY, state.soundOn ? 'on' : 'off'); }catch(e){}
+      updateSoundIcon();
+      if (state.soundOn) beep(660, 0.12, 0.06);
+    });
+  }
+  updateSoundIcon();
+
+  // ---------------- Toasts ----------------
+  function showToast(title, msg){
+    const stack = $('toastStack');
+    if (!stack) return;
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = `<div class="tt">${title}</div><div class="tm">${msg}</div>`;
+    stack.appendChild(el);
+    setTimeout(()=> el.remove(), 3100);
   }
 
   // ---------------- Step Navigation ----------------
@@ -48,6 +121,9 @@
       el.classList.toggle('active', idx===n);
       el.classList.toggle('done', idx<n);
     });
+    const caption = $('stepCaption');
+    if (caption) caption.textContent = STEP_NAMES[n];
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // ---------------- Screen 1: Connection ----------------
@@ -106,6 +182,7 @@
       count++;
       dots[count-1] && dots[count-1].classList.add('filled');
       state.calRepsSeen = count;
+      vibrate(12);
       $('calReadout').innerHTML = `Rep ${count} of 3 captured — baseline EMG ~<b>${(480+Math.random()*60|0)} µV</b>, ROM ~<b>${(85+Math.random()*10|0)}°</b>`;
       if(count>=3){
         clearInterval(iv);
@@ -134,7 +211,7 @@
     const svg = $('gaugeSvg');
     if (!svg) return;
     const cx=110, cy=120, r=95;
-    const segColors = ['#16a34a','#d97706','#ea580c','#dc2626'];
+    const segColors = ['#0bb494','#e2a63b','#ee7b39','#ec3d3f'];
     let paths = '';
     const segCount = segColors.length;
     const gap = 0.035;
@@ -146,17 +223,17 @@
       const active = pct >= (i/segCount);
       const x1 = cx + r*Math.cos(segStart), y1 = cy - r*Math.sin(segStart);
       const x2 = cx + r*Math.cos(segEnd), y2 = cy - r*Math.sin(segEnd);
-      paths += `<path d="M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}" stroke="${active?segColors[i]:'#e2dad0'}" stroke-width="14" fill="none" stroke-linecap="round" opacity="${active?1:0.5}"/>`;
+      paths += `<path d="M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}" stroke="${active?segColors[i]:'#e0ddd6'}" stroke-width="14" fill="none" stroke-linecap="round" opacity="${active?1:0.5}"/>`;
     }
     const needleAngle = startAngle - totalSpan*pct;
     const nx = cx + (r-20)*Math.cos(needleAngle), ny = cy - (r-20)*Math.sin(needleAngle);
-    const needle = `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#2c2825" stroke-width="3.5" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="5.5" fill="#2c2825"/>`;
+    const needle = `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#21262c" stroke-width="3.5" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="5.5" fill="#21262c"/>`;
     svg.innerHTML = paths + needle;
   }
   drawGauge(0);
 
   // ---------------- Charts ----------------
-  Chart.defaults.color = '#6b635b';
+  Chart.defaults.color = '#656d75';
   Chart.defaults.font.family = "'JetBrains Mono', monospace";
   Chart.defaults.font.size = 10;
 
@@ -170,14 +247,14 @@
         plugins:{ legend:{display:false} },
         scales:{
           x:{ display:false },
-          y:{ grid:{ color:'#e2dad0' }, ticks:{ maxTicksLimit:4 } }
+          y:{ grid:{ color:'#e0ddd6' }, ticks:{ maxTicksLimit:4 } }
         }
       }
     });
   }
-  const emgChart = makeLineChart($('emgChart'), '#0284c7');
-  const motionChart = makeLineChart($('motionChart'), '#d97706');
-  const qualityChart = makeLineChart($('qualityChart'), '#16a34a');
+  const emgChart = makeLineChart($('emgChart'), '#0bb494');
+  const motionChart = makeLineChart($('motionChart'), '#e2a63b');
+  const qualityChart = makeLineChart($('qualityChart'), '#21262c');
 
   function pushChart(chart, val, windowSize){
     if (!chart) return;
@@ -198,6 +275,8 @@
     return { text:'Rep quality breaking down', pct: score/100, cls:'danger' };
   }
 
+  const STREAK_MILESTONES = [3, 5, 8, 12];
+
   function handleSample(sample){
     state.live.samples.push(sample);
 
@@ -212,11 +291,17 @@
       statusPill.textContent = sample.status || st.text;
       statusPill.className = 'status-pill ' + st.cls;
     }
-    
+
     drawGauge(Math.min(1, sample.fatigueScore/100));
 
     const banner = $('nearFailureBanner');
-    if (banner) banner.classList.toggle('show', sample.fatigueScore >= 65);
+    const isNearFailure = sample.fatigueScore >= 65;
+    if (banner) banner.classList.toggle('show', isNearFailure);
+    if (isNearFailure && !state.live.nearFailureAlerted){
+      state.live.nearFailureAlerted = true;
+      vibrate([40,60,40]);
+      showToast('Heads up', 'Near-failure fatigue detected');
+    }
 
     pushChart(emgChart, sample.emg, state.live.chartWindow);
     pushChart(motionChart, sample.repSpeed, state.live.chartWindow);
@@ -226,8 +311,34 @@
       const repQuality = Math.max(0, 100 - sample.fatigueScore - (Math.random()*8));
       state.live.qualityScores.push(repQuality);
       pushChart(qualityChart, repQuality, 20);
-      if(repQuality >= 60) state.live.goodReps++; else state.live.droppingReps++;
+
+      const isGood = repQuality >= 60;
+      if (isGood){
+        state.live.goodReps++;
+        state.live.streak++;
+        beep(720, 0.09, 0.045);
+      } else {
+        state.live.droppingReps++;
+        state.live.streak = 0;
+        beep(280, 0.12, 0.045);
+      }
+      state.live.bestStreak = Math.max(state.live.bestStreak, state.live.streak);
+      vibrate(14);
+      updateStreakUI();
+
+      if (isGood && STREAK_MILESTONES.includes(state.live.streak) && !state.live.streakBadgesHit.has(state.live.streak)){
+        state.live.streakBadgesHit.add(state.live.streak);
+        vibrate([18,40,18,40,18]);
+        showToast(`${state.live.streak}-rep streak`, 'Quality holding strong — keep it up');
+      }
     }
+  }
+
+  function updateStreakUI(){
+    const val = $('streakVal');
+    const chip = $('streakChip');
+    if (val) val.textContent = state.live.streak;
+    if (chip) chip.classList.toggle('hot', state.live.streak >= 3);
   }
 
   function startLiveSet(){
@@ -238,6 +349,11 @@
     state.live.goodReps = 0;
     state.live.droppingReps = 0;
     state.live.lastRepCount = 0;
+    state.live.streak = 0;
+    state.live.bestStreak = 0;
+    state.live.streakBadgesHit = new Set();
+    state.live.nearFailureAlerted = false;
+    updateStreakUI();
     [emgChart, motionChart, qualityChart].forEach(c=>{ if (c) { c.data.labels=[]; c.data.datasets[0].data=[]; c.update('none'); } });
 
     if(state.connMode === 'demo'){
@@ -344,17 +460,78 @@
     const avgEnd = romEnd.reduce((a,b)=>a+b,0)/(romEnd.length||1);
     const romDrop = avgStart - avgEnd;
 
+    // ---- Personal record check ----
+    const history = loadHistory();
+    const prior = history[state.exercise] || { bestReps: 0, bestStreak: 0, bestAvgSpeed: null, setsCompleted: 0, lastReps: null, lastAvgSpeed: null };
+    const prevLastReps = prior.lastReps;
+    const prevLastAvgSpeed = prior.lastAvgSpeed;
+
+    const repsPR = totalReps > prior.bestReps;
+    const streakPR = s.bestStreak > prior.bestStreak;
+    const newRecord = repsPR || streakPR;
+
+    const updated = {
+      bestReps: Math.max(prior.bestReps, totalReps),
+      bestStreak: Math.max(prior.bestStreak, s.bestStreak),
+      bestAvgSpeed: prior.bestAvgSpeed === null ? avgSpeed : Math.min(prior.bestAvgSpeed, avgSpeed),
+      setsCompleted: (prior.setsCompleted || 0) + 1,
+      lastReps: totalReps,
+      lastAvgSpeed: avgSpeed
+    };
+    history[state.exercise] = updated;
+    saveHistory(history);
+
+    // ---- PR banner ----
+    const prBanner = $('prBanner');
+    if (prBanner){
+      if (newRecord){
+        prBanner.classList.add('show');
+        const parts = [];
+        if (repsPR) parts.push(`${totalReps} reps (was ${prior.bestReps})`);
+        if (streakPR) parts.push(`${s.bestStreak}-rep quality streak (was ${prior.bestStreak})`);
+        $('prSubtext').textContent = `${state.exercise} — ${parts.join(' · ')}`;
+        vibrate([30,50,30,50,60]);
+        showToast('New personal best', state.exercise);
+      } else {
+        prBanner.classList.remove('show');
+      }
+    }
+
+    // ---- Earned badges strip ----
+    const badges = [];
+    if (totalReps >= 10) badges.push('10+ rep set');
+    if (s.droppingReps === 0 && totalReps > 0) badges.push('Zero quality drops');
+    if (s.bestStreak >= 8) badges.push(`${s.bestStreak}-rep streak`);
+    if (romDrop <= 3) badges.push('Consistent ROM');
+    if (updated.setsCompleted >= 5) badges.push(`${updated.setsCompleted} sets logged`);
+    const badgeStrip = $('badgeStrip');
+    if (badgeStrip){
+      badgeStrip.innerHTML = badges.map(b=>`<div class="earned-badge">${b}</div>`).join('');
+    }
+
+    // ---- Deltas vs. previous set ----
+    function deltaHtml(curr, prev, higherIsBetter, suffix){
+      if (prev === null || prev === undefined) return '';
+      const diff = curr - prev;
+      if (Math.abs(diff) < 0.01) return `<div class="delta">= vs last set</div>`;
+      const better = higherIsBetter ? diff > 0 : diff < 0;
+      const arrow = diff > 0 ? '▲' : '▼';
+      const sign = diff > 0 ? '+' : '';
+      return `<div class="delta ${better?'up':'down'}">${arrow} ${sign}${diff.toFixed(suffix==='s'?2:0)}${suffix} vs last</div>`;
+    }
+
     const cards = [
-      { v: totalReps, l: 'Total reps' },
-      { v: avgSpeed.toFixed(2)+'s', l: 'Avg rep speed' },
-      { v: (lastSample.repSpeed||0).toFixed(2)+'s', l: 'Last rep speed' },
-      { v: (lastSample.fatigueScore||0)+'%', l: 'Est. fatigue' },
-      { v: romDrop>3 ? 'Decreased' : 'Stable', l: 'ROM consistency' },
-      { v: s.goodReps, l: 'Good reps' },
-      { v: s.droppingReps, l: 'Quality-drop reps' },
+      { v: totalReps, l: 'Total reps', delta: deltaHtml(totalReps, prevLastReps, true, ''), pr: repsPR },
+      { v: avgSpeed.toFixed(2)+'s', l: 'Avg rep speed', delta: deltaHtml(avgSpeed, prevLastAvgSpeed, false, 's'), pr:false },
+      { v: (lastSample.repSpeed||0).toFixed(2)+'s', l: 'Last rep speed', delta:'', pr:false },
+      { v: (lastSample.fatigueScore||0)+'%', l: 'Est. fatigue', delta:'', pr:false },
+      { v: romDrop>3 ? 'Decreased' : 'Stable', l: 'ROM consistency', delta:'', pr:false },
+      { v: s.goodReps, l: 'Good reps', delta:'', pr:false },
+      { v: s.droppingReps, l: 'Quality-drop reps', delta:'', pr:false },
+      { v: s.bestStreak, l: 'Best streak', delta:'', pr: streakPR },
     ];
     if ($('summaryGrid')) {
-      $('summaryGrid').innerHTML = cards.map(c=>`<div class="summary-card"><div class="v">${c.v}</div><div class="l">${c.l}</div></div>`).join('');
+      $('summaryGrid').innerHTML = cards.map(c=>`<div class="summary-card ${c.pr?'pr-hit':''}"><div class="v">${c.v}</div><div class="l">${c.l}</div>${c.delta}</div>`).join('');
     }
 
     let fatigueRepMark = null;
@@ -367,6 +544,7 @@
         (fatigueRepMark ? `Fatigue increased after rep ${fatigueRepMark}<br>` : 'Fatigue stayed low throughout<br>') +
         `Rep speed drifted upward on reps ${speedDropRange}<br>` +
         `Range of motion ${romDrop>3?'decreased near the end':'stayed consistent'}<br>` +
+        `Best quality streak this set: <b>${s.bestStreak}</b><br>` +
         `Final status: <span class="final">${finalStatus}</span>`;
     }
   }
@@ -403,6 +581,7 @@
       if ($('btnToLive')) $('btnToLive').disabled = true;
       if ($('calReadout')) $('calReadout').textContent = 'Press start, then perform 3 easy reps at normal effort.';
       document.querySelectorAll('.cal-dot').forEach(d=>d.classList.remove('filled'));
+      $('prBanner') && $('prBanner').classList.remove('show');
       goToStep(1);
     });
   }
